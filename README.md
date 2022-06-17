@@ -83,7 +83,7 @@ chmod +x build-libcc.sh
 The libcc code expose to the application an API. Here are the functionnalities:
 
 ```C
-enum bpfca_t{
+enum bpfcc_t{
     BPF_CUBIC,
     BPF_RENO,
     BPF_VEGAS,
@@ -93,12 +93,12 @@ enum bpfca_t{
 
 * This enum class list the controler congestion available
 
-int bpfca_select(enum bpfca_t);
-void bpfca_unload();
-void bpfca_load();
+int bpfcc_select(enum bpfcc_t);
+void bpfcc_unload();
+void bpfcc_load();
 
 * Then all application have to do is to select the controler congestion with enum bpfca_t type, load and
-unload respectively with bpfca_load(), bpfca_unload()
+unload respectively with bpfcc_load(), bpfcc_unload()
 ```
 
 ##### start the server
