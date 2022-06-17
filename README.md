@@ -19,14 +19,12 @@ cd ebpf-coupled-congestion-controler
 git submodule init && git submodule update
 ```
 
-#### Build eBPF code
+#### Build eBPF && library code
 
 To build the eBPF code execute the following commands.
 
-```
-cd bpf_cubic && make
-cd ../bpf_reno && make
-cd ../bpf_vegas && make
+```Bash
+./compile-bpf.sh
 ```
 
 #### Buggs
