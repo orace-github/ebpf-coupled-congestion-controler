@@ -219,8 +219,8 @@ static int bind_socket(char *server_ipaddr, char *server_port){
       return -1;
     }
     // load bpf_reno congestion algorithm object in kernel
-    bpfca_select(BPF_RENO);
-    bpfca_load();
+    bpfcc_select(BPF_RENO);
+    bpfcc_load();
     // set bpf_reno as congestion algorithm on this tcp session
     char* tcp_ca = "bpf_reno";
     if(setsockopt(sd,IPPROTO_TCP,TCP_CONGESTION,tcp_ca,strlen(tcp_ca)) != 0){
