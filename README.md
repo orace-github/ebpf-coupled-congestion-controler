@@ -80,17 +80,24 @@ chmod +x build-libcc.sh
 
 #### Try with an exemple client and server
 
-The eBPF code expose to the application an API with the following function:
+The libcc code expose to the application an API. Here are the functionnalities:
 
-* void load_bpf_cubic(void); to load the eBPF cubic congestion controller as kernel module.
-      This function will automatically set bpf_cubic as the default congestion controller.
-      
-* void unload_bpf_cubic(void); to unload the eBPF cubic congestion controller.
-
-* New functions will come soon to control the behavior of the congestion controller. 
-
-You could try it by running the minimal client and server example in client_server_example folder.
-
+```C
+enum bpfca_t{
+    BPF_CUBIC,
+    BPF_RENO,
+    BPF_VEGAS,
+    BPF_BBR, // upcoming
+    BPF_UNSPEC, // error type
+    };
+* This enum class list the controler congestion available
+```C
+int bpfca_select(enum bpfca_t);
+void bpfca_unload();
+void bpfca_load();
+* Then all application have to do is to select the controler congestion with enum bpfca_t type, load and
+unload respectively with bpfca_load(), bpfca_unload()
+```
 
 ##### start the server
 
