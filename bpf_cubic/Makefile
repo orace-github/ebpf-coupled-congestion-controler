@@ -1,0 +1,79 @@
+PREFIX = /usr/local
+DBG = -g -ggdb
+INSTALL := install
+
+MAKEFLAGS := --jobs=$(shell nproc)
+
+ARCH := $(shell uname -m | sed 's/x86_64/x86/')
+
+OUTPUT := ./.output
+LIBBPF_SRC := $(abspath ./ebpf/libbpf/src)
+LIBBPF_OBJ := $(abspath ./$(OUTPUT)/libbpf.a)
+LIBBPF_OBJDIR := $(abspath ./$(OUTPUT)/libbpf)
+LIBBPF_DESTDIR := $(abspath ./$(OUTPUT))
+
+BPFTOOL := $(abspath ./tools/bpftool)
+
+CLANG := ${CLANG}
+STRIP := ${STRIP}
+
+ifeq ($(CLANG),)
+CLANG := clang
+endif
+
+ifeq ($(STRIP),)
+STRIP := llvm-strip
+endif
+  
+INCLUDES := -I$(OUTPUT) -I. -Iebpf/
+
+CFLAGS += -Wall -O2 $(DBG) -fPIE
+
+
+PROGRAM=./$(OUTPUT)/libcubiccc.a
+
+SOURCES = $(wildcard *.c) $(wildcard ../*.c)
+OBJECTS = $(foreach wrd,$(subst .c,.o,$(SOURCES)),$(OUTPUT)/$(wrd))
+
+
+all: $(LIBBPF_OBJ) $(OUTPUT)/bpfcubic.o $(OBJECTS)
+	ar -rcs   $(PROGRAM) \
+		$(OBJECTS) \
+		$(OUTPUT)/bpfcubic.o \
+		
+
+$(OUTPUT)/%.o : %.c | $(OUTPUT)
+	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OUTPUT) $(OUTPUT)/libbpf $(OUTPUT)/ebpf:
+	mkdir -p $@
+
+$(OUTPUT)/%.o: ebpf/%.c ebpf/%.h $(LIBBPF_OBJ) $(OUTPUT)/%.skel.h ebpf/vmlinux.h | $(OUTPUT)
+	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT)
+	./tools/bpftool gen skeleton $< > $@
+
+$(OUTPUT)/%.bpf.o: ebpf/%.bpf.c ebpf/%.h $(LIBBPF_OBJ) ebpf/vmlinux.h | $(OUTPUT)
+	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) \
+		$(INCLUDES) -c $(filter %.c,$^) -o $@ && \
+		$(STRIP) -g $@
+
+$(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(OUTPUT)/libbpf
+	$(MAKE) -C $(LIBBPF_SRC) \
+		BUILD_STATIC_ONLY=1 \
+		OBJDIR=$(LIBBPF_OBJDIR) \
+		DESTDIR=$(LIBBPF_DESTDIR) \
+		INCLUDEDIR= LIBDIR= UAPIDIR= install
+clean:
+	rm -rf *.o *.d .output $(PROGRAM)
+
+install: $(PROGRAM)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(prefix)/bin
+	$(INSTALL) $(PROGRAM) $(DESTDIR)$(prefix)/bin
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(PROGRAM)
+
+# keep intermediate (.skel.h, .bpf.o, etc) targets
+.SECONDARY:
