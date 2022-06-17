@@ -97,7 +97,7 @@ int bpfcc_select(enum bpfcc_t);
 void bpfcc_unload();
 void bpfcc_load();
 
-* Then all application have to do is to select the controler congestion with enum bpfca_t type, load and
+* Then all application have to do is to select the controler congestion with enum bpfcc_t type, load and
 unload respectively with bpfcc_load(), bpfcc_unload()
 ```
 
