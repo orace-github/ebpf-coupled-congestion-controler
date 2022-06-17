@@ -13,7 +13,7 @@
 #include "message.h"
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include "../lib/lib.h"
+#include "../libcc/libcc.h"
 
 int cmd_sd, data_sd, wfd = -1;
 static int copy(char *src, char *dst);

@@ -11,10 +11,10 @@ server.o: server.c
 	gcc -c server.c -o server.o 
 
 server: message.o server.o
-	gcc -g message.o server.o -o server -L$(OUTPUT) -lebpfcc -lelf -lz
+	gcc -g message.o server.o -o server -L$(OUTPUT) -lebpfcc -lbpf -lelf -lz
 
 client: message.o client.o
-	gcc -g message.o client.o -o client -L$(OUTPUT) -lebpfcc -lelf -lz
+	gcc -g message.o client.o -o client -L$(OUTPUT) -lebpfcc -lbpf -lelf -lz
 	
 
 clean:
