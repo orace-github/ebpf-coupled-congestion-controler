@@ -18,3 +18,6 @@ all: $(OUTPUT)/loader.o
 
 $(OUTPUT)/%.o : %.c | $(OUTPUT)
 	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+clean: $(OUTPUT)/loader.o
+	rm $<

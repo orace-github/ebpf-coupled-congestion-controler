@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "loader.h"
-#include "ebpf/bpfcubic.h"
 
 #define STRUCT_OPS_VALUE_PREFIX "bpf_struct_ops_"
 
