@@ -4,7 +4,7 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "loader.h"
+#include "../loader/loader.h"
 #include "bpfvegas.h"
 #include "bpfvegas.skel.h"
 #include <unistd.h>
@@ -13,22 +13,9 @@
 #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
 					 * max_cwnd = snd_cwnd * beta
 					 */
-struct bpfvegas_bpf *skel;
-// -- WARNNING --//
-/** We'll access this code through an external projet directory loacted in the same parent directory
- * 
- * | bpf_vegas directory|  | external projet directory |
- *          |                           |
- *          |                           |
- *          -----------------------------
- *                      |
- *                      |
- *              | parent directory |
- * 
- ** Then bpfvegas.bpf.o path resolution from {external projet directory} 
- ** has to be -- "../bpf_vegas/.output/bpfvegas.bpf.o"
-*/
-char *ebpf_cc_binary_path  = "../bpf_vegas/.output/bpfvegas.bpf.o";
+static struct bpfvegas_bpf *skel;
+
+static char *ebpf_cc_binary_path  = "../.output/bpfvegas.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
