@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
-OUTPUT := ./.output
+OUTPUT := ../.output
 CLANG ?= clang
 LLVM_STRIP ?= llvm-strip
-BPFTOOL ?= $(abspath tools/bpftool)
-LIBBPF_SRC := $(abspath libbpf/src)
-LIBBPF_OBJ := $(abspath $(OUTPUT)/libbpf.a)
+BPFTOOL := $(abspath ../tools/bpftool)
+LIBBPF_SRC := $(abspath ../libbpf/src)
+LIBBPF_OBJ := $(abspath ./$(OUTPUT)/libbpf.a)
+LIBBPF_OBJDIR := $(abspath ./$(OUTPUT)/libbpf)
+LIBBPF_DESTDIR := $(abspath ./$(OUTPUT))
+
 # Use our own libbpf API headers and Linux UAPI headers distributed with
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
 INCLUDES := -I$(OUTPUT) -I../libbpf/include/uapi
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -fPIE
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 PROGRAM=./$(OUTPUT)/libvegascc.a
@@ -42,7 +45,6 @@ endif
 
 all: $(LIBBPF_OBJ) $(OUTPUT)/bpfvegas.o $(OBJECTS)
 	ar -rcs   $(PROGRAM) \
-		$(OBJECTS) \
 		$(OUTPUT)/bpfvegas.o \
 		
 $(OUTPUT) $(OUTPUT)/libbpf:
@@ -61,18 +63,15 @@ $(OUTPUT)/%.o: %.c %.h $(LIBBPF_OBJ) $(OUTPUT)/%.skel.h vmlinux.h | $(OUTPUT)
 	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT)
-	./tools/bpftool gen skeleton $< > $@
+	$(BPFTOOL) gen skeleton $< > $@
 
 $(OUTPUT)/%.bpf.o: %.bpf.c %.h $(LIBBPF_OBJ) vmlinux.h | $(OUTPUT)
 	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) \
 		$(INCLUDES) -c $(filter %.c,$^) -o $@ && \
 		$(LLVM_STRIP) -g $@
-
-$(OUTPUT)/%.o: %.c %.h | $(OUTPUT)
-	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
 	
 clean:
-	rm -rf *.o *.d .output $(PROGRAM)
+	rm -rf $(OUTPUT)/bpfvegas.* $(PROGRAM)
 
 # delete failed targets
 .DELETE_ON_ERROR:

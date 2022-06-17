@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
-OUTPUT := ./.output
+OUTPUT := ../.output
 CLANG ?= clang
 LLVM_STRIP ?= llvm-strip
-BPFTOOL ?= $(abspath tools/bpftool)
-LIBBPF_SRC := $(abspath libbpf/src)
-LIBBPF_OBJ := $(abspath $(OUTPUT)/libbpf.a)
+BPFTOOL := $(abspath ../tools/bpftool)
+LIBBPF_SRC := $(abspath ../libbpf/src)
+LIBBPF_OBJ := $(abspath ./$(OUTPUT)/libbpf.a)
+LIBBPF_OBJDIR := $(abspath ./$(OUTPUT)/libbpf)
+LIBBPF_DESTDIR := $(abspath ./$(OUTPUT))
+
 # Use our own libbpf API headers and Linux UAPI headers distributed with
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
 INCLUDES := -I$(OUTPUT) -I../libbpf/include/uapi
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -fPIE
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
@@ -43,37 +46,34 @@ OBJECTS = $(foreach wrd,$(subst .c,.o,$(SOURCES)),$(OUTPUT)/$(wrd))
 
 all: $(LIBBPF_OBJ) $(OUTPUT)/bpfreno.o $(OBJECTS)
 	ar -rcs   $(PROGRAM) \
-		$(OBJECTS) \
 		$(OUTPUT)/bpfreno.o \
 
 clean:
-	rm -rf *.o *.d .output $(PROGRAM)
+	rm -rf $(OUTPUT)/bpfreno.* $(PROGRAM)
 
 $(OUTPUT) $(OUTPUT)/libbpf:
 	$(call msg,MKDIR,$@)
 	$(Q)mkdir -p $@
 
 # Build libbpf
-$(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile) | $(OUTPUT)/libbpf
-	$(call msg,LIB,$@)
-	$(Q)$(MAKE) -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1		      \
-		    OBJDIR=$(dir $@)/libbpf DESTDIR=$(dir $@)		      \
-		    INCLUDEDIR= LIBDIR= UAPIDIR=			      \
-		    install
+$(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(OUTPUT)/libbpf
+	$(MAKE) -C $(LIBBPF_SRC) \
+		BUILD_STATIC_ONLY=1 \
+		OBJDIR=$(LIBBPF_OBJDIR) \
+		DESTDIR=$(LIBBPF_DESTDIR) \
+		INCLUDEDIR= LIBDIR= UAPIDIR= install
 
 $(OUTPUT)/%.o: %.c %.h $(LIBBPF_OBJ) $(OUTPUT)/%.skel.h vmlinux.h | $(OUTPUT)
 	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT)
-	./tools/bpftool gen skeleton $< > $@
+	$(BPFTOOL) gen skeleton $< > $@
 
 $(OUTPUT)/%.bpf.o: %.bpf.c %.h $(LIBBPF_OBJ) vmlinux.h | $(OUTPUT)
 	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) \
 		$(INCLUDES) -c $(filter %.c,$^) -o $@ && \
 		$(LLVM_STRIP) -g $@
 
-$(OUTPUT)/%.o: %.c %.h | $(OUTPUT)
-	$(CLANG) $(CFLAGS) $(INCLUDES) -c $< -o $@
 # delete failed targets
 .DELETE_ON_ERROR:
 
