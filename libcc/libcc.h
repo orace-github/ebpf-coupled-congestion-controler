@@ -5,7 +5,7 @@
 #include "../bpf_reno/bpfreno.h"
 #include "../bpf_vegas/bpfvegas.h"
 
-enum bpfca_t{
+enum bpfcc_t{
     BPF_CUBIC,
     BPF_RENO,
     BPF_VEGAS,
@@ -17,10 +17,10 @@ enum bpfca_t{
 typedef struct {
     void (*load)(void);
     void (*unload)(void);
-    enum bpfca_t type;
-}bpfca_loader_ops_t;
+    enum bpfcc_t type;
+}bpfcc_loader_ops_t;
 
-int bpfca_select(enum bpfca_t);
-void bpfca_unload();
-void bpfca_load();
+int bpfcc_select(enum bpfcc_t);
+void bpfcc_unload();
+void bpfcc_load();
 #endif //__LIB_H__
