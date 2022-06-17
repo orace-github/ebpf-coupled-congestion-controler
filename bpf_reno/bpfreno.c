@@ -4,7 +4,7 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "loader.h"
+#include "../loader/loader.h"
 #include "bpfreno.h"
 #include "bpfreno.skel.h"
 #include <unistd.h>
@@ -13,22 +13,9 @@
 #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
 					 * max_cwnd = snd_cwnd * beta
 					 */
-struct bpfreno_bpf *skel;
-// -- WARNNING --//
-/** We'll access this code through an external projet directory loacted in the same parent directory
- * 
- * | bpf_reno directory|  | external projet directory |
- *          |                           |
- *          |                           |
- *          -----------------------------
- *                      |
- *                      |
- *              | parent directory |
- * 
- ** Then bpfreno.bpf.o path resolution from {external projet directory} 
- ** has to be -- "../bpf_reno/.output/bpfreno.bpf.o"
-*/
-char *ebpf_cc_binary_path  = "../bpf_reno/.output/bpfreno.bpf.o";
+static struct bpfreno_bpf *skel;
+
+static char *ebpf_cc_binary_path  = "../.output/bpfreno.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
