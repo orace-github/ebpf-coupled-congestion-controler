@@ -13,9 +13,9 @@
 #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
 					 * max_cwnd = snd_cwnd * beta
 					 */
-struct bpfcubic_bpf *skel;
+static struct bpfcubic_bpf *skel;
 
-char *ebpf_cc_binary_path  = "../.output/bpfcubic.bpf.o";
+static char *ebpf_cc_binary_path  = "../.output/bpfcubic.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
