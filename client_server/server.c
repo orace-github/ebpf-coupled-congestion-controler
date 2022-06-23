@@ -201,10 +201,9 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
        , recv_log_file, strerror(errno) );
       return -1;
    }
-   //unload_bpf_reno();
-    load_bpf_reno();
-    //load_bpf_vegas();
-    //load_bpf_cubic();
+    load_bpf_reno(); // inject bpf_reno cc into kernel
+    load_bpf_vegas(); // inject bpf_vegas cc into kernel
+    load_bpf_cubic(); // inject bpf_cubic cc into kernel
    init_params(sfd, rfd);
    cmd_sd = bind_socket(server_ipaddr, server_port1);
    data_sd = bind_socket(server_ipaddr, server_port2);
