@@ -46,28 +46,6 @@ If you have the following errors when building the eBPF code:
 Just open the file bpf_cubic/btf in an editor and copy lines 23 and 24 to the file ../.output/bpf/btf.h. 
 That will fix the error message.
 
-#### Build bpf_struct_ops loader code
-
-To build the bpf_struct_ops loader code execute the following commands.
-
-```Bash
-chmod +x build-loader.sh
-./build-loader.sh
-```
-
-#### Bugs
-
-If you have the following errors when building the loader code:
-
-```
-../.output/bpf/btf.h:579:18: error: incomplete definition of type 'struct btf_enum64'
-        return ((__u64)e->val_hi32 << 32) | e->val_lo32;
-
-```
-
-Just open the file ../.output/bpf/btf.h in an editor and remove lines 577, 578, 579 and 580.
-That will fix the error message.
-
 #### Build libcc code
 
 libcc couple cubic, reno, vegas controler congestion as an API
@@ -105,8 +83,8 @@ unload respectively with bpfcc_load(), bpfcc_unload()
 ##### start the server
 
 ```
-cd ../client_server_example
-make
+cd ../client_server
+make clean && make
 sudo ./server -s localhost -p 1234 -P 5678 -S send_log_file_path -R recv_log_file_path
 ```
 The server calls load_bpf_cubic(void) to set bpf_cubic as default congestion controller. When the transfer ends
