@@ -15,7 +15,7 @@
 					 */
 static struct bpfvegas_bpf *skel;
 
-static char *ebpf_cc_binary_path  = "../.output/bpfvegas.bpf.o";
+// static char *ebpf_cc_binary_path  = "../.output/bpfvegas.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
@@ -36,7 +36,7 @@ static void bump_memlock_rlimit(void){
 
 int bpf_vegas_init(void){
     int err;
-
+    struct bpf_link* link;
     /* Set up libbpf errors and debug info callback */
     libbpf_set_print(libbpf_print_fn);
 
@@ -57,21 +57,26 @@ int bpf_vegas_init(void){
         goto cleanup;
     }
 	
-    load_structops_prog_from_file(ebpf_cc_binary_path);
+    /* load_structops_prog_from_file(ebpf_cc_binary_path);
 
-    /* Attach tracepoints */
+    // Attach tracepoints
     err = bpfvegas_bpf__attach(skel);
     if (err) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
-    }
+    } */
 
+    link = bpf_map__attach_struct_ops(skel->maps.vegas);
+    if(!link){
+       printf("bpf_map__attach_struct_ops failed");
+       bpfvegas_bpf__destroy(skel);
+   }
 cleanup:
     return err < 0 ? -err : 0;
 }
 
 void bpf_vegas_stop(void){
    /* unload bpf_cubic cc */
-   unload_bpf_cc2();
+   // unload_bpf_cc2();
    /* Clean up */
    bpfvegas_bpf__destroy(skel);
 }
@@ -80,7 +85,7 @@ void load_bpf_vegas(void){
    /* load bpf_vegas as kernel module*/
    bpf_vegas_init();
    /* set bpf_vegas as default cc*/
-   //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_vegas");
+   system("sysctl -w net.ipv4.tcp_congestion_control=bpf_vegas");
 }
 
 void unload_bpf_vegas(void){

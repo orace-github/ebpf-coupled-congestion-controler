@@ -15,7 +15,7 @@
 					 */
 static struct bpfreno_bpf *skel;
 
-static char *ebpf_cc_binary_path  = "../.output/bpfreno.bpf.o";
+// static char *ebpf_cc_binary_path  = "../.output/bpfreno.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
@@ -36,7 +36,7 @@ static void bump_memlock_rlimit(void){
 
 int bpf_reno_init(void){
     int err;
-
+    struct bpf_link* link;
     /* Set up libbpf errors and debug info callback */
     libbpf_set_print(libbpf_print_fn);
 
@@ -57,21 +57,26 @@ int bpf_reno_init(void){
         goto cleanup;
     }
 	
-    load_structops_prog_from_file(ebpf_cc_binary_path);
+    //load_structops_prog_from_file(ebpf_cc_binary_path);
 
-    /* Attach tracepoints */
+    /* Attach tracepoints /
     err = bpfreno_bpf__attach(skel);
     if (err) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
     }
-
+    */
+   link = bpf_map__attach_struct_ops(skel->maps.reno);
+   if(!link){
+       printf("bpf_map__attach_struct_ops failed");
+       bpfreno_bpf__destroy(skel);
+   }
 cleanup:
     return err < 0 ? -err : 0;
 }
 
 void bpf_reno_stop(void){
    /* unload bpf_cubic cc */
-   unload_bpf_cc2();
+   //unload_bpf_cc2();
    /* Clean up */
    bpfreno_bpf__destroy(skel);
 }
@@ -80,7 +85,7 @@ void load_bpf_reno(void){
    /* load bpf_reno as kernel module*/
    bpf_reno_init();
    /* set bpf_reno as default cc*/
-   //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
+   system("sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
 }
 
 void unload_bpf_reno(void){

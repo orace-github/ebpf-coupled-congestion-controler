@@ -15,7 +15,7 @@
 					 */
 static struct bpfcubic_bpf *skel;
 
-static char *ebpf_cc_binary_path  = "../.output/bpfcubic.bpf.o";
+// static char *ebpf_cc_binary_path  = "../.output/bpfcubic.bpf.o";
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args){
     if (level == LIBBPF_DEBUG)
         return 0;
@@ -36,7 +36,7 @@ static void bump_memlock_rlimit(void){
 
 int bpf_cubic_init(void){
     int err;
-
+    struct bpf_link* link;
     /* Set up libbpf errors and debug info callback */
     libbpf_set_print(libbpf_print_fn);
 
@@ -57,24 +57,30 @@ int bpf_cubic_init(void){
         goto cleanup;
     }
 	
-    load_structops_prog_from_file(ebpf_cc_binary_path);
+    //load_structops_prog_from_file(ebpf_cc_binary_path);
 
-    /* Attach tracepoints */
+    /* Attach tracepoints 
     err = bpfcubic_bpf__attach(skel);
     if (err) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
     }
-
+    */
     skel->bss->beta = 717;
     skel->bss->beta_scale  = 8*(BICTCP_BETA_SCALE+skel->bss->beta) / 3
 				/ (BICTCP_BETA_SCALE - skel->bss->beta);
+
+    link = bpf_map__attach_struct_ops(skel->maps.cubic);
+    if(!link){
+       printf("bpf_map__attach_struct_ops failed");
+       bpfcubic_bpf__destroy(skel);
+   }
 cleanup:
     return err < 0 ? -err : 0;
 }
 
 void bpf_cubic_stop(void){
    /* unload bpf_cubic cc */
-   unload_bpf_cc2();
+   // unload_bpf_cc2();
    /* Clean up */
    bpfcubic_bpf__destroy(skel);
 }
@@ -83,7 +89,7 @@ void load_bpf_cubic(void){
    /* load bpf_cubic as kernel module*/
    bpf_cubic_init();
    /* set bpf_cubic as default cc*/
-   //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
+   system("sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
 }
 
 void unload_bpf_cubic(void){
