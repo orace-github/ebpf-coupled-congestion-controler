@@ -132,12 +132,14 @@ void tcp_reno_cong_avoid(struct sock* sk, u32 ack, u32 acked){
 	tcp_cong_avoid_ai(tp, tp->snd_cwnd, acked);
 }
 
-u32 BPF_STRUCT_OPS(tcp_reno_ssthresh,struct sock* sk){
+SEC("struct_ops/tcp_reno_ssthresh")
+u32 BPF_PROG(tcp_reno_ssthresh, struct sock* sk){
     const struct tcp_sock *tp = tcp_sk(sk);
 	return max(tp->snd_cwnd >> 1U, 2U);
 }
 
-u32 BPF_STRUCT_OPS(tcp_reno_undo_cwnd,struct sock* sk){
+SEC("struct_ops/tcp_reno_undo_cwnd")
+u32 BPF_PROG(tcp_reno_undo_cwnd, struct sock* sk){
     const struct tcp_sock *tp = tcp_sk(sk);
 	return max(tp->snd_cwnd, tp->prior_cwnd);
 }
@@ -430,7 +432,8 @@ size_t BPF_STRUCT_OPS(tcp_vegas_get_info,struct sock *sk, u32 ext, int *attr,
 	return 0;
 }
 
-static struct tcp_congestion_ops tcp_vegas = {
+SEC(".struct_ops")
+struct tcp_congestion_ops vegas = {
 	.init		= (void*)tcp_vegas_init,
 	.ssthresh	= (void*)tcp_reno_ssthresh,
 	.undo_cwnd	= (void*)tcp_reno_undo_cwnd,

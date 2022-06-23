@@ -228,22 +228,6 @@ static __always_inline void bictcp_hystart_reset(struct sock *sk)
 	ca->sample_cnt = 0;
 }
 
-static __always_inline void bictcp_to_event(struct event* e, struct bictcp* ca){
-	BPF_CORE_READ_INTO(&e->bictcp.ack_cnt, ca , ack_cnt);
-	BPF_CORE_READ_INTO(&e->bictcp.cnt, ca , cnt);
-	BPF_CORE_READ_INTO(&e->bictcp.last_cwnd, ca , last_cwnd);
-	BPF_CORE_READ_INTO(&e->bictcp.last_time, ca , last_time);
-	BPF_CORE_READ_INTO(&e->bictcp.bic_origin_point, ca , bic_origin_point);
-	BPF_CORE_READ_INTO(&e->bictcp.bic_K, ca , bic_K);
-	BPF_CORE_READ_INTO(&e->bictcp.delay_min, ca , delay_min);
-	BPF_CORE_READ_INTO(&e->bictcp.epoch_start, ca , epoch_start);
-	BPF_CORE_READ_INTO(&e->bictcp.tcp_cwnd, ca , tcp_cwnd);
-	BPF_CORE_READ_INTO(&e->bictcp.sample_cnt, ca , sample_cnt);
-	BPF_CORE_READ_INTO(&e->bictcp.round_start, ca , round_start);
-	BPF_CORE_READ_INTO(&e->bictcp.end_seq, ca , end_seq);
-	BPF_CORE_READ_INTO(&e->bictcp.last_ack, ca , last_ack);
-	BPF_CORE_READ_INTO(&e->bictcp.curr_rtt, ca , curr_rtt);
-}
 /*
  * cbrt(x) MSB values for x MSB values in [0..63].
  * Precomputed then refined by hand - Willy Tarreau
@@ -420,8 +404,8 @@ tcp_friendliness:
  * as long as it is used in one of the func ptr
  * under SEC(".struct_ops").
  */
-SEC("struct_ops/bictcp_init")
-void BPF_PROG(bictcp_init, struct sock *sk)
+SEC("struct_ops/cubictcp_init")
+void BPF_PROG(cubictcp_init, struct sock *sk)
 {
 	struct bictcp *ca = inet_csk_ca(sk);
 
@@ -437,8 +421,8 @@ void BPF_PROG(bictcp_init, struct sock *sk)
 /* No prefix in SEC will also work.
  * The remaining tcp-cubic functions have an easier way.
  */
-SEC("struct_ops/bictcp_cwnd_event")
-void BPF_PROG(bictcp_cwnd_event, struct sock *sk, enum tcp_ca_event event)
+SEC("struct_ops/cubictcp_cwnd_event")
+void BPF_PROG(cubictcp_cwnd_event, struct sock *sk, enum tcp_ca_event event)
 {
 	if (event == CA_EVENT_TX_START) {
 		struct bictcp *ca = inet_csk_ca(sk);
@@ -452,7 +436,6 @@ void BPF_PROG(bictcp_cwnd_event, struct sock *sk, enum tcp_ca_event event)
 		if(!e)
 			return;
 		e->type = BICTCP_CWND_EVENT;
-		bictcp_to_event(e,ca);
 		/* We were application limited (idle) for a while.
 		 * Shift epoch_start to keep cwnd growth to cubic curve.
 		 */
@@ -466,7 +449,7 @@ void BPF_PROG(bictcp_cwnd_event, struct sock *sk, enum tcp_ca_event event)
 }
 
 /* Or simply use the BPF_STRUCT_OPS to avoid the SEC boiler plate. */
-void BPF_STRUCT_OPS(bictcp_cong_avoid, struct sock *sk, __u32 ack, __u32 acked)
+void BPF_STRUCT_OPS(cubictcp_cong_avoid, struct sock *sk, __u32 ack, __u32 acked)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bictcp *ca = inet_csk_ca(sk);
@@ -486,14 +469,13 @@ void BPF_STRUCT_OPS(bictcp_cong_avoid, struct sock *sk, __u32 ack, __u32 acked)
 			return;
 	}
 	e->type = BICTCP_CONG_AVOID;
-	bictcp_to_event(e,ca);
 	bictcp_update(ca, tp->snd_cwnd, acked);
 	tcp_cong_avoid_ai(tp, ca->cnt, acked);
 	bpf_ringbuf_submit(e,0);
 }
 
 
-__u32 BPF_STRUCT_OPS(bictcp_recalc_ssthresh, struct sock *sk)
+__u32 BPF_STRUCT_OPS(cubictcp_recalc_ssthresh, struct sock *sk)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
 	struct bictcp *ca = inet_csk_ca(sk);
@@ -510,7 +492,7 @@ __u32 BPF_STRUCT_OPS(bictcp_recalc_ssthresh, struct sock *sk)
 	return max((tp->snd_cwnd * beta) / BICTCP_BETA_SCALE, 2U);
 }
 
-void BPF_STRUCT_OPS(bictcp_state, struct sock *sk, __u8 new_state)
+void BPF_STRUCT_OPS(cubictcp_state, struct sock *sk, __u8 new_state)
 {
 	if (new_state == TCP_CA_Loss) {
 		bictcp_reset(inet_csk_ca(sk));
@@ -597,8 +579,8 @@ __u32 BPF_PROG(tcp_reno_undo_cwnd, struct sock*sk)
 	return max(tp->snd_cwnd, tp->prior_cwnd);
 }
 
-SEC("struct_ops/bictcp_acked")
-void BPF_PROG(bictcp_acked, struct sock *sk,
+SEC("struct_ops/cubictcp_acked")
+void BPF_PROG(cubictcp_acked, struct sock *sk,
 		    const struct ack_sample *sample)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
@@ -610,7 +592,6 @@ void BPF_PROG(bictcp_acked, struct sock *sk,
 		return;
 	
 	e->type = BICTCP_ACKED;
-	bictcp_to_event(e,ca);
 	/* Some calls are for duplicates without timetamps */
 	if (sample->rtt_us < 0)
 		return;
@@ -635,12 +616,12 @@ void BPF_PROG(bictcp_acked, struct sock *sk,
 
 SEC(".struct_ops")
 struct tcp_congestion_ops cubic = {
-	.init		= (void *)bictcp_init,
-	.ssthresh	= (void *)bictcp_recalc_ssthresh,
-	.cong_avoid	= (void *)bictcp_cong_avoid,
-	.set_state	= (void *)bictcp_state,
+	.init		= (void *)cubictcp_init,
+	.ssthresh	= (void *)cubictcp_recalc_ssthresh,
+	.cong_avoid	= (void *)cubictcp_cong_avoid,
+	.set_state	= (void *)cubictcp_state,
 	.undo_cwnd	= (void *)tcp_reno_undo_cwnd,
-	.cwnd_event	= (void *)bictcp_cwnd_event,
-	.pkts_acked     = (void *)bictcp_acked,
+	.cwnd_event	= (void *)cubictcp_cwnd_event,
+	.pkts_acked     = (void *)cubictcp_acked,
 	.name		= "bpf_cubic",
 };

@@ -61,8 +61,12 @@ $(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(OUTPUT)/libbpf
 		OBJDIR=$(LIBBPF_OBJDIR) \
 		DESTDIR=$(LIBBPF_DESTDIR) \
 		INCLUDEDIR= LIBDIR= UAPIDIR= install
+
+vmlinux.h: 
+	$(BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c >> $@
+
 clean:
-	rm -rf $(OUTPUT)/bpfcubic.* $(PROGRAM)
+	rm -rf $(OUTPUT)/bpfcubic.* $(PROGRAM) 
 
 install: $(PROGRAM)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(prefix)/bin
