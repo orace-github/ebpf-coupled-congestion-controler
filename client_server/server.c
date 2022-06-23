@@ -25,6 +25,18 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
    char *sent_log_file, char *recv_log_file);
 static int release(void);
 
+static int settcpcc(int fd, const char *tcp_ca)
+{
+	int err;
+
+	err = setsockopt(fd, IPPROTO_TCP, TCP_CONGESTION, tcp_ca, strlen(tcp_ca));
+	if (err == -1){
+    printf("setsockopt(fd, TCP_CONGESTION) errno:%d\n",errno);
+    return -1;
+  }
+	
+	return 0;
+}
 
 int main(int argc, char *argv[]){
   struct message m1, m2; /*incomming and outgoing message*/
@@ -189,7 +201,10 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
        , recv_log_file, strerror(errno) );
       return -1;
    }
-     
+   //unload_bpf_reno();
+    load_bpf_reno();
+    //load_bpf_vegas();
+    //load_bpf_cubic();
    init_params(sfd, rfd);
    cmd_sd = bind_socket(server_ipaddr, server_port1);
    data_sd = bind_socket(server_ipaddr, server_port2);
@@ -199,6 +214,7 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
 static int release(void){
   return (close(data_sd) || close(cmd_sd) || close(data_csd) 
              || close(cmd_csd) || close(rfd) || close(wfd));
+             unload_bpf_reno();
 }
 
 static int bind_socket(char *server_ipaddr, char *server_port){
@@ -218,14 +234,7 @@ static int bind_socket(char *server_ipaddr, char *server_port){
       fprintf(stderr, "Un petit problème lors du listen %d\n", errno);
       return -1;
     }
-    // load bpf_reno congestion algorithm object in kernel
-    bpfcc_select(BPF_RENO);
-    bpfcc_load();
-    // set bpf_reno as congestion algorithm on this tcp session
-    char* tcp_ca = "bpf_reno";
-    if(setsockopt(sd,IPPROTO_TCP,TCP_CONGESTION,tcp_ca,strlen(tcp_ca)) != 0){
-      fprintf(stderr, "Un petit problème lors de l'application du bpf_reno %d\n", errno);
-      return -1;
-    }
+   // load bpf_reno congestion algorithm object in kernel
+   settcpcc(sd,"bpf_reno");
     return sd;
 }

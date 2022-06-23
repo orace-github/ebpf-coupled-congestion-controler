@@ -208,11 +208,11 @@ static int connect_to_server(char *server_ipaddr, char *server_port){
     fprintf(stderr, "Erreur de connection au server %d\n", errno);
     return -1;
   }
-  char* tcp_ca = "bpf_reno";
+/*  char* tcp_ca = "bpf_reno";
     if(setsockopt(sd,IPPROTO_TCP,TCP_CONGESTION,tcp_ca,strlen(tcp_ca)) != 0){
       fprintf(stderr, "Un petit problème lors de l'application du bpf_reno %d\n", errno);
       return -1;
-    }
+    }*/
     
   err = fcntl(sd, F_SETFL, O_NONBLOCK );
   return sd;
