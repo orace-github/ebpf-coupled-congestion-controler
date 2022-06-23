@@ -73,11 +73,6 @@ static int hystart_low_window = 16;
 static int hystart_ack_delta_us = 2000;
 static int hystart_detect = HYSTART_ACK_TRAIN | HYSTART_DELAY;
 
-struct {
-	__uint(type, BPF_MAP_TYPE_RINGBUF);
-	__uint(max_entries, 256 * 1024);
-} rb SEC(".maps");
-
 static __always_inline __u64 div64_u64(__u64 dividend, __u64 divisor)
 {
 	return dividend / divisor;
@@ -431,11 +426,6 @@ void BPF_PROG(cubictcp_cwnd_event, struct sock *sk, enum tcp_ca_event event)
 
 		delta = now - tcp_sk(sk)->lsndtime;
 
-		struct event* e;
-		e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-		if(!e)
-			return;
-		e->type = BICTCP_CWND_EVENT;
 		/* We were application limited (idle) for a while.
 		 * Shift epoch_start to keep cwnd growth to cubic curve.
 		 */
@@ -454,10 +444,6 @@ void BPF_STRUCT_OPS(cubictcp_cong_avoid, struct sock *sk, __u32 ack, __u32 acked
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bictcp *ca = inet_csk_ca(sk);
 
-	struct event* e;
-	e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-	if(!e)
-		return;
 	if (!tcp_is_cwnd_limited(sk))
 		return;
 
@@ -468,10 +454,8 @@ void BPF_STRUCT_OPS(cubictcp_cong_avoid, struct sock *sk, __u32 ack, __u32 acked
 		if (!acked)
 			return;
 	}
-	e->type = BICTCP_CONG_AVOID;
 	bictcp_update(ca, tp->snd_cwnd, acked);
 	tcp_cong_avoid_ai(tp, ca->cnt, acked);
-	bpf_ringbuf_submit(e,0);
 }
 
 
@@ -587,11 +571,6 @@ void BPF_PROG(cubictcp_acked, struct sock *sk,
 	struct bictcp *ca = inet_csk_ca(sk);
 	__u32 delay;
 
-	struct event* e = bpf_ringbuf_reserve(&rb, sizeof(struct event), 0);
-	if(!e)
-		return;
-	
-	e->type = BICTCP_ACKED;
 	/* Some calls are for duplicates without timetamps */
 	if (sample->rtt_us < 0)
 		return;
