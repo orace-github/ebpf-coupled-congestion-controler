@@ -4,7 +4,6 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "../loader/loader.h"
 #include "bpfvegas.h"
 #include "bpfvegas.skel.h"
 #include <unistd.h>

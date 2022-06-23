@@ -8,7 +8,6 @@
 #include <bpf/libbpf.h>
 #include "bpfcubic.h"
 #include "bpfcubic.skel.h"
-#include "../loader/loader.h"
 
 #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
 					 * max_cwnd = snd_cwnd * beta
