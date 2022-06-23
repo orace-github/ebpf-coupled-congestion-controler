@@ -7,8 +7,9 @@ The aim of this project is to be able to couple congestion controllers of severa
 #### Requirements
 
 ```
+CONFIG_DEBUG_INFO_BTF=y
 sudo apt update
-sudo apt install libbpf-dev
+sudo apt install libelf-dev
 sudo apt-get install -y clang llvm  
 ```
 #### Clone the repo and fetch lastest libbpf
