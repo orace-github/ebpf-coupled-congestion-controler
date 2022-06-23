@@ -51,7 +51,7 @@ static __always_inline bool before(__u32 seq1, __u32 seq2)
 	__rem;								\
 })
 
-u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
+static __always_inline u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
 {
 	u32 cwnd = min(tp->snd_cwnd + acked, tp->snd_ssthresh);
 	acked -= cwnd - tp->snd_cwnd;
@@ -98,7 +98,7 @@ static __always_inline __u32 tcp_current_ssthresh(const struct sock *sk)
 /* In theory this is tp->snd_cwnd += 1 / tp->snd_cwnd (or alternative w),
  * for every packet that was ACKed.
  */
-void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked)
+static __always_inline void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked)
 {
 	/* If credits accumulated at a higher w, apply them gently now. */
 	if (tp->snd_cwnd_cnt >= w) {
@@ -116,7 +116,7 @@ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked)
 	tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_cwnd_clamp);
 }
 
-void tcp_reno_cong_avoid(struct sock* sk, u32 ack, u32 acked){
+static __always_inline void tcp_reno_cong_avoid(struct sock* sk, u32 ack, u32 acked){
     struct tcp_sock *tp = tcp_sk(sk);
 
 	if (!tcp_is_cwnd_limited(sk))
@@ -188,7 +188,7 @@ static inline void vegas_disable(struct sock *sk)
 }
 
 SEC("struct_ops/tcp_vegas_init")
-void tcp_vegas_init(struct sock *sk)
+void BPF_PROG(tcp_vegas_init, struct sock *sk)
 {
 	struct vegas *vegas = inet_csk_ca(sk);
 
@@ -246,8 +246,11 @@ void BPF_STRUCT_OPS(tcp_vegas_state, struct sock *sk, u8 ca_state)
 void BPF_STRUCT_OPS(tcp_vegas_cwnd_event, struct sock *sk, enum tcp_ca_event event)
 {
 	if (event == CA_EVENT_CWND_RESTART ||
-	    event == CA_EVENT_TX_START)
-		tcp_vegas_init(sk);
+	    event == CA_EVENT_TX_START){
+			struct vegas *vegas = inet_csk_ca(sk);
+			vegas->baseRTT = 0x7fffffff;
+			vegas_enable(sk);
+		}
 }
 
 static inline u32 tcp_vegas_ssthresh(struct tcp_sock *tp)
@@ -379,59 +382,6 @@ void BPF_STRUCT_OPS(tcp_vegas_cong_avoid, struct sock *sk, u32 ack, u32 acked)
 		tcp_slow_start(tp, acked);
 }
 
-/* Extensions */
-
-enum {
-	INET_DIAG_NONE,
-	INET_DIAG_MEMINFO,
-	INET_DIAG_INFO,
-	INET_DIAG_VEGASINFO,
-	INET_DIAG_CONG,
-	INET_DIAG_TOS,
-	INET_DIAG_TCLASS,
-	INET_DIAG_SKMEMINFO,
-	INET_DIAG_SHUTDOWN,
-
-	/*
-	 * Next extenstions cannot be requested in struct inet_diag_req_v2:
-	 * its field idiag_ext has only 8 bits.
-	 */
-
-	INET_DIAG_DCTCPINFO,	/* request as INET_DIAG_VEGASINFO */
-	INET_DIAG_PROTOCOL,	/* response attribute only */
-	INET_DIAG_SKV6ONLY,
-	INET_DIAG_LOCALS,
-	INET_DIAG_PEERS,
-	INET_DIAG_PAD,
-	INET_DIAG_MARK,		/* only with CAP_NET_ADMIN */
-	INET_DIAG_BBRINFO,	/* request as INET_DIAG_VEGASINFO */
-	INET_DIAG_CLASS_ID,	/* request as INET_DIAG_TCLASS */
-	INET_DIAG_MD5SIG,
-	INET_DIAG_ULP_INFO,
-	INET_DIAG_SK_BPF_STORAGES,
-	INET_DIAG_CGROUP_ID,
-	INET_DIAG_SOCKOPT,
-	__INET_DIAG_MAX,
-};
-
-/* Extract info for Tcp socket info provided via netlink. */
-size_t BPF_STRUCT_OPS(tcp_vegas_get_info,struct sock *sk, u32 ext, int *attr,
-			  union tcp_cc_info *info)
-{
-	const struct vegas *ca = inet_csk_ca(sk);
-
-	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
-		info->vegas.tcpv_enabled = ca->doing_vegas_now;
-		info->vegas.tcpv_rttcnt = ca->cntRTT;
-		info->vegas.tcpv_rtt = ca->baseRTT;
-		info->vegas.tcpv_minrtt = ca->minRTT;
-
-		*attr = INET_DIAG_VEGASINFO;
-		return sizeof(struct tcpvegas_info);
-	}
-	return 0;
-}
-
 SEC(".struct_ops")
 struct tcp_congestion_ops vegas = {
 	.init		= (void*)tcp_vegas_init,
@@ -441,6 +391,5 @@ struct tcp_congestion_ops vegas = {
 	.pkts_acked	= (void*)tcp_vegas_pkts_acked,
 	.set_state	= (void*)tcp_vegas_state,
 	.cwnd_event	= (void*)tcp_vegas_cwnd_event,
-	.get_info	= (void*)tcp_vegas_get_info,
 	.name		= "bpf_vegas",
 };
