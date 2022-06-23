@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "loader.h": "c",
-        "bpfreno.h": "c",
-        "message.h": "c"
-    }
-}
