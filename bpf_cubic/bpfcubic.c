@@ -88,7 +88,7 @@ void load_bpf_cubic(void){
    /* load bpf_cubic as kernel module*/
    bpf_cubic_init();
    /* set bpf_cubic as default cc*/
-   system("sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
+   // system("sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
 }
 
 void unload_bpf_cubic(void){

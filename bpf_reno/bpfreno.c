@@ -84,7 +84,7 @@ void load_bpf_reno(void){
    /* load bpf_reno as kernel module*/
    bpf_reno_init();
    /* set bpf_reno as default cc*/
-   system("sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
+   //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
 }
 
 void unload_bpf_reno(void){
