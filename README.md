@@ -6,8 +6,10 @@ The aim of this project is to be able to couple congestion controllers of severa
 
 #### Requirements
 
-```
-CONFIG_DEBUG_INFO_BTF=y
+```Bash
+cat /boot/config-$(uname -r) | grep CONFIG_DEBUG_INFO_BTF
+CONFIG_DEBUG_INFO_BTF=y is mandatory with bpf struct_ops program type
+
 sudo apt update
 sudo apt install libelf-dev
 sudo apt-get install -y clang llvm  
@@ -107,5 +109,3 @@ The client does nothing because the test is done in the same host. Otherwise, th
 ```
 python3 plot-bpf-cc-goodput.py client_log_simple.log client_log_simple.log  client_log_simple.log cubic vegas_bpf_cubic 100 60
 ```
-
-cat /boot/config-5.13.0-051300-generic | grep CONFIG_DEBUG_INFO_BTF
