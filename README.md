@@ -85,12 +85,13 @@ unload respectively with bpfcc_load(), bpfcc_unload()
 ##### start the server
 
 ```
-cd ../client_server
+cd bpfcc-tcp-client-server/
 make clean && make
-sudo ./server -s localhost -p 1234 -P 5678 -S send_log_file_path -R recv_log_file_path
+sudo ./server -s localhost -p 1234 -P 5678 -S send_log_file_path -R recv_log_file_path --bpfcc=<bpf_reno|bpf_cubic|bpf_vegas>
+
 ```
-The server calls load_bpf_cubic(void) to set bpf_cubic as default congestion controller. When the transfer ends
-it calls  unload_bpf_cubic(void) to unload bpf_cubic.
+The server calls load_bpf_<cc> (void) to set bpf_<cc> as default congestion controller. When the transfer ends
+it calls  unload_bpf_<cc>(void) to unload bpf_<cc>.
 
 ##### start the client
 
@@ -99,13 +100,8 @@ The client does nothing because the test is done in the same host. Otherwise, th
 In another terminal run the following command:
 
 ```
-./client -s localhost -p 1234 -P 5678 -S ../send_log_file_path -R ../recv_log_file_path -i <src_file> -o <dst_file> -f
+./client -s localhost -p 1234 -P 5678 -S ../send_log_file_path -R ../recv_log_file_path -i <src_file> -o <dst_file> -f --bpfcc=<bpf_reno|bpf_cubic|bpf_vegas>
 ```
 
 The client does nothing because the test is done in the same host. Otherwise, the client will do the same.
 
-#### Ploting graph
-
-```
-python3 plot-bpf-cc-goodput.py client_log_simple.log client_log_simple.log  client_log_simple.log cubic vegas_bpf_cubic 100 60
-```
