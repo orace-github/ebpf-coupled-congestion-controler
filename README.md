@@ -90,8 +90,8 @@ make clean && make
 sudo ./server -s localhost -p 1234 -P 5678 -S send_log_file_path -R recv_log_file_path --bpfcc=<bpf_reno|bpf_cubic|bpf_vegas>
 
 ```
-The server calls load_bpf_<cc> (void) to set bpf_<cc> as default congestion controller. When the transfer ends
-it calls  unload_bpf_<cc>(void) to unload bpf_<cc>.
+The server calls load_bpf_[cc] (void) to set bpf_[cc] as default congestion controller. When the transfer ends
+it calls  unload_bpf_[cc](void) to unload bpf_[cc].
 
 ##### start the client
 
