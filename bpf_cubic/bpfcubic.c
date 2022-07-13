@@ -89,9 +89,11 @@ void load_bpf_cubic(void){
    bpf_cubic_init();
    /* set bpf_cubic as default cc*/
    // system("sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
+   printf("bpf_cubic loaded!\n");
 }
 
 void unload_bpf_cubic(void){
    /* unload ebpf code module as kernel module*/
    bpf_cubic_stop();
+   printf("bpf_cubic unloaded!\n");
 }

@@ -85,9 +85,11 @@ void load_bpf_reno(void){
    bpf_reno_init();
    /* set bpf_reno as default cc*/
    //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
+   printf("bpf_reno loaded!\n");
 }
 
 void unload_bpf_reno(void){
    /* unload ebpf code module as kernel module*/
    bpf_reno_stop();
+   printf("bpf_reno unloaded!\n");
 }

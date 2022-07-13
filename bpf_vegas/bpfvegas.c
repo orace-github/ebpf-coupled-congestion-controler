@@ -85,9 +85,11 @@ void load_bpf_vegas(void){
    bpf_vegas_init();
    /* set bpf_vegas as default cc*/
    //system("sysctl -w net.ipv4.tcp_congestion_control=bpf_vegas");
+   printf("bpf_vegas loaded!\n");
 }
 
 void unload_bpf_vegas(void){
    /* unload ebpf code module as kernel module*/
    bpf_vegas_stop();
+   printf("bpf_vegas unloaded!\n");
 }

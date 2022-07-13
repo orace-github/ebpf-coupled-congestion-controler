@@ -107,3 +107,5 @@ The client does nothing because the test is done in the same host. Otherwise, th
 ```
 python3 plot-bpf-cc-goodput.py client_log_simple.log client_log_simple.log  client_log_simple.log cubic vegas_bpf_cubic 100 60
 ```
+
+cat /boot/config-5.13.0-051300-generic | grep CONFIG_DEBUG_INFO_BTF
