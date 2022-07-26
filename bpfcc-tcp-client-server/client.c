@@ -325,7 +325,7 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
       return -1;
    }
      
-  init_params(rfd,sfd,NULL,NULL,NULL);
+  init_params(rfd,sfd,&env.recv_list,&env.send_list,env.bandwidth_analyzer);
   if((cmd_sd = connect_to_server(server_ipaddr, server_port1))<0){
     fprintf(stderr, "Erreur lors de la connexion au server au" 
            "port (%d) (%s)\n", cmd_sd, server_port1);
@@ -370,7 +370,11 @@ int main(int argc, char * argv[]){
   char *send_log_file = env.send_log_file, *recv_log_file = env.recv_log_file;
   char *src_file = env.src_file, *dst_file = env.dst_file;
   int fast_transfer = env.fast_transfer; 
-
+  init_list(&env.recv_list);
+  init_list(&env.send_list);
+  env.__iter_rvc_bw = &env.recv_list.head;
+  env.__iter_snd_bw = &env.send_list.head;
+  env.bandwidth_analyzer = bandwidth_analyzer;
   initialize(server_addr, port, port2, send_log_file, recv_log_file);
   if(!fast_transfer)
     copy(src_file, dst_file);
