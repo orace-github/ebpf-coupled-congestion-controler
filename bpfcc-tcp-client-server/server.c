@@ -50,6 +50,8 @@ static struct env{
   struct list recv_list;
   struct list send_list;
   void (*bandwidth_analyzer)(void*); // called from log function
+  struct list_head* __iter_rvc_bw; // init to &recv_list->head
+  struct list_head* __iter_snd_bw; // init to &send_list->head
   char *server_addr;
   char *port;
   char *port2;
@@ -67,9 +69,6 @@ static struct env{
   }flags;
 } env;
 
-void bandwidth_analyzer(void* __unused /* unused */){
-
-}
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
@@ -170,6 +169,76 @@ static void sig_handler(int sig)
 {
   release();
   exit(-1);
+}
+
+static void switch_bpfcc(void){
+  if(!env.flags.bpf_cubic){
+    env.load_bpfcc = load_bpf_cubic;
+    env.unload_bpfcc = unload_bpf_cubic;
+    env.load_bpfcc();
+    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
+    fprintf(stdout,"Switching on bpf_cubic...");
+    system(env.sysctl_cmd);
+    settcpcc(cmd_csd,"bpf_cubic");
+    settcpcc(data_csd,"bpf_cubic");
+    fprintf(stdout,"[OK]\n");
+    env.flags.bpf_cubic = 1;
+  }
+  else if(!env.flags.bpf_vegas){
+    env.load_bpfcc = load_bpf_vegas;
+    env.unload_bpfcc = unload_bpf_vegas;
+    env.load_bpfcc();
+    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_vegas");
+    fprintf(stdout,"Switching on bpf_vegas...");
+    system(env.sysctl_cmd);
+    settcpcc(cmd_csd,"bpf_vegas");
+    settcpcc(data_csd,"bpf_vegas");
+    fprintf(stdout,"[OK]\n");
+    env.flags.bpf_vegas = 1;
+  }
+  else if(!env.flags.bpf_reno){
+    env.load_bpfcc = load_bpf_reno;
+    env.unload_bpfcc = unload_bpf_reno;
+    env.load_bpfcc();
+    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
+    fprintf(stdout,"Switching on bpf_reno...");
+    system(env.sysctl_cmd);
+    settcpcc(cmd_csd,"bpf_reno");
+    settcpcc(data_csd,"bpf_reno");
+    fprintf(stdout,"[OK]\n");
+    env.flags.bpf_reno = 1;
+  }
+}
+
+static void bandwidth_analyzer(void* __unused /* unused */){
+  struct list_head* it;
+  struct list_head* it_;
+  // probe recv_log file
+  list_for_each_safe(it,it_,env.__iter_rvc_bw){
+    rate_t* slice_1 = list_entry(it,rate_t,head);
+    if(it_){
+      rate_t* slice_2 = list_entry(it_,rate_t,head);
+      if(slice_2->bw < slice_1->bw){
+        // change controller congestion
+        switch_bpfcc();
+        env.__iter_rvc_bw = it_;
+        break;
+      }
+    }
+  }
+  // probe send_log file
+  list_for_each_safe(it,it_,env.__iter_snd_bw){
+    rate_t* slice_1 = list_entry(it,rate_t,head);
+    if(it_){
+      rate_t* slice_2 = list_entry(it_,rate_t,head);
+      if(slice_2->bw < slice_1->bw){
+        // change controller congestion
+        switch_bpfcc();
+        env.__iter_snd_bw = it_;
+        break;
+      }
+    }
+  }
 }
 
 int main(int argc, char *argv[]){
