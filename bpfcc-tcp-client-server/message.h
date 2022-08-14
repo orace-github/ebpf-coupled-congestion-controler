@@ -42,13 +42,22 @@ typedef struct {
   struct list_head head;
 }rate_t;
 
+typedef unsigned char u8;
+
+struct bpfcc{
+    u8 bpf_cubic : 1;
+    u8 bpf_reno : 1;
+    u8 bpf_vegas: 1;
+    u8 unused : 5;
+};
+
 int ifri_receive(int from, struct message *m);
 int ifri_send(int to, struct message *m);
 int resolve_address(struct sockaddr *sa, socklen_t *salen, const char *host,
    const char *port, int family, int type, int proto);
 double gettime_ms(void);
-void init_params(int recv_log_, int sent_log_, struct list* recv_list_, struct list* send_list_,
-void (*bandwidth_analyzer_)(void*));
+void init_params(int recv_log_, int sent_log_, int bandwidth_);
+void init_sockfd(int data_csd_, int cmd_csd_, struct bpfcc fl);
 int set_recv_data(int recv_data);
 int print_recv_log(void);
 int print_sent_log(void);

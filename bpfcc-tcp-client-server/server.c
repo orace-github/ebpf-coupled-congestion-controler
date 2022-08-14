@@ -43,15 +43,11 @@ static const struct argp_option opts[] = {
     {"sndfile", 'S', "SNDLOG-FILE", 0, "snd log file"},
     {"rcvfile", 'R', "RCVLOG-FILE", 0, "rcv log file"},
     {"bpfcc", 'c', "BPF-CC", 0, "bpf congestion controler"},
+    {"bandwidth_analyzer", 'b', 0, 0, "enable bandwidth analyzer"},
     {},
 };
 
 static struct env{
-  struct list recv_list;
-  struct list send_list;
-  void (*bandwidth_analyzer)(void*); // called from log function
-  struct list_head* __iter_rvc_bw; // init to &recv_list->head
-  struct list_head* __iter_snd_bw; // init to &send_list->head
   char *server_addr;
   char *port;
   char *port2;
@@ -59,14 +55,10 @@ static struct env{
   char *recv_log_file;
   void (*load_bpfcc)();
   void (*unload_bpfcc)();
+  int bandwidth;
   char* bpfcc;
   char sysctl_cmd[64]; // buffer overflow, check later: critical since i intend to run system(sysctl_cmd);
-  struct{
-    u8 bpf_cubic : 1;
-    u8 bpf_reno : 1;
-    u8 bpf_vegas: 1;
-    u8 unused : 5;
-  }flags;
+  struct bpfcc flags;
 } env;
 
 
@@ -94,18 +86,21 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
       env.unload_bpfcc = unload_bpf_reno;
       env.bpfcc = arg;
       sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=%s",arg);
+      env.flags.bpf_reno = 1;
     }
     else if(!strcmp(arg,"bpf_vegas")){
       env.load_bpfcc = load_bpf_vegas;
       env.unload_bpfcc = unload_bpf_vegas;
       env.bpfcc = arg;
       sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=%s",arg);
+      env.flags.bpf_vegas = 1;
     } 
     else if(!strcmp(arg,"bpf_cubic")){
       env.load_bpfcc = load_bpf_cubic;
       env.unload_bpfcc = unload_bpf_cubic;
       env.bpfcc = arg;
       sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=%s",arg);
+      env.flags.bpf_cubic = 1;
     }
     else if(!strcmp(arg,"cubic")){
       env.bpfcc = arg;
@@ -139,6 +134,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
   case 'R':
     env.recv_log_file = arg;
     break;
+  case 'b':
+    env.bandwidth = 1;
+    break;
   case ARGP_KEY_ARG:
     argp_usage(state);
     break;
@@ -171,76 +169,6 @@ static void sig_handler(int sig)
   exit(-1);
 }
 
-static void switch_bpfcc(void){
-  if(!env.flags.bpf_cubic){
-    env.load_bpfcc = load_bpf_cubic;
-    env.unload_bpfcc = unload_bpf_cubic;
-    env.load_bpfcc();
-    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_cubic");
-    fprintf(stdout,"Switching on bpf_cubic...");
-    system(env.sysctl_cmd);
-    settcpcc(cmd_csd,"bpf_cubic");
-    settcpcc(data_csd,"bpf_cubic");
-    fprintf(stdout,"[OK]\n");
-    env.flags.bpf_cubic = 1;
-  }
-  else if(!env.flags.bpf_vegas){
-    env.load_bpfcc = load_bpf_vegas;
-    env.unload_bpfcc = unload_bpf_vegas;
-    env.load_bpfcc();
-    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_vegas");
-    fprintf(stdout,"Switching on bpf_vegas...");
-    system(env.sysctl_cmd);
-    settcpcc(cmd_csd,"bpf_vegas");
-    settcpcc(data_csd,"bpf_vegas");
-    fprintf(stdout,"[OK]\n");
-    env.flags.bpf_vegas = 1;
-  }
-  else if(!env.flags.bpf_reno){
-    env.load_bpfcc = load_bpf_reno;
-    env.unload_bpfcc = unload_bpf_reno;
-    env.load_bpfcc();
-    sprintf(env.sysctl_cmd,"sysctl -w net.ipv4.tcp_congestion_control=bpf_reno");
-    fprintf(stdout,"Switching on bpf_reno...");
-    system(env.sysctl_cmd);
-    settcpcc(cmd_csd,"bpf_reno");
-    settcpcc(data_csd,"bpf_reno");
-    fprintf(stdout,"[OK]\n");
-    env.flags.bpf_reno = 1;
-  }
-}
-
-static void bandwidth_analyzer(void* __unused /* unused */){
-  struct list_head* it;
-  struct list_head* it_;
-  // probe recv_log file
-  list_for_each_safe(it,it_,env.__iter_rvc_bw){
-    rate_t* slice_1 = list_entry(it,rate_t,head);
-    if(it_){
-      rate_t* slice_2 = list_entry(it_,rate_t,head);
-      if(slice_2->bw < slice_1->bw){
-        // change controller congestion
-        switch_bpfcc();
-        env.__iter_rvc_bw = it_;
-        break;
-      }
-    }
-  }
-  // probe send_log file
-  list_for_each_safe(it,it_,env.__iter_snd_bw){
-    rate_t* slice_1 = list_entry(it,rate_t,head);
-    if(it_){
-      rate_t* slice_2 = list_entry(it_,rate_t,head);
-      if(slice_2->bw < slice_1->bw){
-        // change controller congestion
-        switch_bpfcc();
-        env.__iter_snd_bw = it_;
-        break;
-      }
-    }
-  }
-}
-
 int main(int argc, char *argv[]){
   struct message m1, m2; /*incomming and outgoing message*/
   int r;   /* result code*/
@@ -256,11 +184,6 @@ int main(int argc, char *argv[]){
   char *server_addr = env.server_addr;
   char *port = env.port, *port2 = env.port2;
   char *send_log_file = env.send_log_file, *recv_log_file = env.recv_log_file;
-  init_list(&env.recv_list);
-  init_list(&env.send_list);
-  env.__iter_rvc_bw = &env.recv_list.head;
-  env.__iter_snd_bw = &env.send_list.head;
-  env.bandwidth_analyzer = bandwidth_analyzer;
   memset(&m1,0, sizeof(m1)); 
   memset(&m2,0, sizeof(m2));              
   initialize(server_addr, port, port2, send_log_file, recv_log_file);
@@ -287,6 +210,7 @@ int main(int argc, char *argv[]){
       system(env.sysctl_cmd);
       settcpcc(cmd_csd,env.bpfcc);
       settcpcc(data_csd,env.bpfcc);
+      init_sockfd(data_csd,cmd_csd,env.flags);
       fprintf(stderr, "get connection from (%d) (%d)\n", cmd_csd, data_csd);
       while(TRUE){           /*server runs forever*/
         ifri_receive(cmd_csd, &m1); /* block waiting for a message*/
@@ -382,7 +306,7 @@ static int initialize(char *server_ipaddr, char *server_port1, char *server_port
       return -1;
    }
 
-   init_params(rfd,sfd,&env.recv_list,&env.send_list,env.bandwidth_analyzer);
+   init_params(rfd,sfd,env.bandwidth);
    cmd_sd = bind_socket(server_ipaddr, server_port1);
    data_sd = bind_socket(server_ipaddr, server_port2);
    fprintf(stderr, "Connexion binded (%d) (%d)\n", cmd_sd, data_sd);   
